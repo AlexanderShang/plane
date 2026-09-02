@@ -80,8 +80,8 @@ ProjectCustomFieldValue 的唯一性走 advisory lock,因为它存在"每个 Pro
 
 | 编号 | 描述 | 何时处理 |
 |---|---|---|
-| PB-1 | "暂无" / "待签约" 占位 Contract 的 UI 区分 | Phase B(项目详情页"关联合同"区块) |
-| PB-2 | Contract 列表页 + 创建/编辑 UI | Phase B |
+| PB-1 | "暂无" / "待签约" 占位 Contract 的 UI 区分 | **已完成**(Phase B.2c: `contract-placeholder.ts` 的 `isPlaceholderContractNo`,应用在列表页/详情页/项目详情页"关联合同"区块三处) |
+| PB-2 | Contract 列表页 + 创建/编辑 UI | **已完成**(Phase B.2b `contract-list-root.tsx`/`contract-form-modal.tsx`,PR #17;Phase B.2c 补上详情页缺的"下方关联项目列表",`contract-detail-root.tsx` 读 `contract.project_links` 并联查 `ProjectStore.getProjectById`) |
 | PC-1 | ContractProject 增删改独立管理页 | Phase C |
 | PD-1 | 合同 × 项目矩阵视图 | Phase D(暂缓,等真实使用反馈) |
 | PE-1 | 关系图 + 直接/间接关联区分 | Phase E(暂缓) |

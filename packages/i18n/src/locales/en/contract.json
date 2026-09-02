@@ -1,5 +1,6 @@
 {
   "contract": {
+    "placeholder_badge": "Unsigned",
     "list": {
       "title": "Contracts",
       "description": "Workspace-level contract master data. Click a row to view or edit.",
@@ -64,6 +65,10 @@
     "related_contracts": {
       "heading": "Related contracts",
       "empty": "No contracts are linked to this project yet."
+    },
+    "related_projects": {
+      "heading": "Related projects",
+      "empty": "No projects are linked to this contract yet."
     }
   }
 }
