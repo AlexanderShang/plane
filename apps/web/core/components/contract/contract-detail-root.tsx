@@ -27,7 +27,7 @@ import { Badge } from "@plane/propel/badge";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IContract } from "@plane/types";
-import { Loader } from "@plane/ui";
+import { EUserPermissions, EUserPermissionsLevel, Loader } from "@plane/ui";
 // components
 import { ContractFormModal } from "./contract-form-modal";
 import { isPlaceholderContractNo } from "./contract-placeholder";
@@ -53,7 +53,9 @@ export const ContractDetailRoot = observer(function ContractDetailRoot(props: Pr
     useContract();
   const { getProjectById } = useProject();
   const { allowPermissions } = useUserPermissions();
-  const canEdit = allowPermissions([1], 20);
+  // Contract write is ADMIN-only at the workspace level. See the same
+  // comment in contract-form-modal.tsx for why [1], 20 was a typo.
+  const canEdit = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
 
