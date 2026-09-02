@@ -306,3 +306,58 @@ ce5945fcd  feat(api): B.2a Contract write endpoints
 - ⏸️ Phase E (关系图): 方案文档标"暂缓"
 
 按 "今天基本做完 Phase B" 的目标 —— **Phase B 全部完成**。后续 Phase D / E 是真实使用反馈驱动的可选工作,不在本 session 范围。
+
+## 边界纪律(写给未来 Agent,不要违反)
+
+按"是否需要重构 Plane 原代码" Evaluation 结论(本 session): **保持增补,不重构**。具体边界如下,踩到任一即为违规:
+
+### 不能改的(Plane 原 model / 行为)
+
+- ❌ `apps/api/plane/db/models/{project_custom_field,project,workspace,base,audit_model}.py`  — 我们的 contract 端用 `BaseModel` 继承而非 `WorkspaceBaseModel`,因为 `WorkspaceBaseModel` 携带的 project FK 语义跟 contract 不匹配。**不要为了"看起来一致" 改 `WorkspaceBaseModel`**。
+- ❌ `apps/api/plane/app/views/project_custom_field.py`  — 我们的 `ContractAccessPermission` 跟 `ProjectCustomFieldAccessPermission` 用了同样的 GUEST-reject 模式,但**不要为了统一而抽取公共基类**。两个 permission 类的角色判断和 kwargs 访问 pattern 不同(`view.workspace_slug` vs `view.workspace_slug + view.project_id`),抽公共会引入新耦合。
+- ❌ `apps/api/plane/settings/helper.py`  — 现有 `getWorkspaceActivePath` / `pathnameToAccessKey` 是 Plane 原 helper,不要为了 contract 加新 helper 而改它。
+
+### 不能跨边界改的(Plane 原 endpoint / pattern)
+
+- ❌ `apps/api/plane/app/urls/*.py` 里除 `contract.py` 之外的 route  — 不要为了 contract 改其他 viewset 的 URL prefix
+- ❌ `apps/api/plane/app/views/base.py`  — 不要为 contract viewset 改 `BaseViewSet` 通用逻辑
+- ❌ `apps/web/core/components/settings/{workspace,project}/*`  — 不要改 settings layout / sidebar / header 已有 pattern 来适配 contract。如果需要新菜单项,在现有 settings 导航注册而不是改 layout
+
+### 可以改的(我们自己的代码)
+
+- ✅ `apps/api/plane/db/models/contract.py`  — 完全自有
+- ✅ `apps/api/plane/db/migrations/01XX_*.py`(contract 相关的)
+- ✅ `apps/api/plane/app/serializers/contract.py`  — 完全自有
+- ✅ `apps/api/plane/app/views/contract.py`  — 完全自有
+- ✅ `apps/api/plane/app/urls/contract.py`  — 完全自有
+- ✅ `apps/api/plane/tests/unit/{models,views}/test_contract*.py`  — 完全自有
+- ✅ `apps/web/core/components/contract/` 目录(新)— 完全自有
+- ✅ `apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/contracts/` 路由 — 完全自有
+- ✅ `apps/web/core/services/project/contract.service.ts`  — 完全自有
+- ✅ `apps/web/core/store/contract.store.ts`  — 完全自有
+- ✅ `apps/web/core/hooks/store/use-contract.ts`  — 完全自有
+- ✅ `packages/i18n/src/locales/{en,zh-CN}/contract.json`  — 完全自有(独立 i18n file,不污染 project-custom-field.json)
+- ✅ `docs/internal-{contract,project,custom-fields}-*.md`  — 完全自有
+- ✅ `tools/check_viewset_decorators.py`  — 完全自有(进程工具)
+
+### 跨边界的"显式 import"规则
+
+- ✅ **contract 端可以 import Plane 原 utilities**(如 `useUserPermissions`, `EUserPermissions` 等)— 这是显式依赖,不是改 Plane
+- ❌ **contract 端不应被 Plane 原 import** — 如果 `views/project_custom_field.py` 需要引用 contract,需要重新考虑:大概率是错的边界
+
+### i18n 边界
+
+- ✅ 继续"独立 `contract.json` file",不污染 Plane 原 locale files
+- ❌ 不要在 `project-custom-field.json` 里再加 contract 相关的 key(PR #21 已经把 related_contracts 留下,这是历史遗留;后续 B.2b 添加的 contract.* 都在 contract.json)
+- ❌ 不要修改 Plane 原 locale files(en.json, zh-CN.json, 等)以添加 contract 翻译
+
+### 为什么是增补不是重构(对未来的解释)
+
+- **fork 兼容性**:Plane 是 fork(起源 makeplane/plane)。大量重构让 fork 与 upstream 漂移,未来 `git merge makeplane:preview` 会爆。增补让冲突局限在 `contract.py` / `contract/` 目录,合并成本低。
+- **PR 独立性**:Phase A/B 的 4 个 PR 各自独立可合并 (Phase Independence)。重构会引入跨文件耦合,让独立 PR 模型崩塌。
+- **零接触 Plane 原 model**:Phase A 的 Contract / ContractProject 是新 model,不动 ProjectCustomField / Project / Workspace。重构这些 model 不会改进 contract 端,只会让 fork diverge。
+- **已建立的 docs 标 Internal**:所有 contract 相关文件顶部都有 "Internal addition (not part of upstream makeplane/plane)" 注释。跨边界时这个注释要保留。
+
+### 触发 review 的条件
+
+如果未来发现某个**改 1 行 contract 端**需要**改 ≥3 处 Plane 原文件**,立即停下来问"是不是越界了"。这通常是"增补"开始失败、需要重新评估的信号。
