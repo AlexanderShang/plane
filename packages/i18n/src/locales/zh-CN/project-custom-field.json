@@ -34,7 +34,11 @@
         "send_button": "发送"
       },
       "project_info_page": {
-        "ungrouped_section": "其他字段"
+        "ungrouped_section": "其他字段",
+        "related_contracts": {
+          "heading": "关联合同",
+          "empty": "该项目暂未关联合同。"
+        }
       },
       "delete_confirmation": {
         "title": "删除该字段",

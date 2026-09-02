@@ -34,7 +34,11 @@
         "send_button": "Send"
       },
       "project_info_page": {
-        "ungrouped_section": "Other fields"
+        "ungrouped_section": "Other fields",
+        "related_contracts": {
+          "heading": "Related contracts",
+          "empty": "No contracts are linked to this project yet."
+        }
       },
       "delete_confirmation": {
         "title": "Delete this field",

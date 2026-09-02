@@ -12,6 +12,7 @@ import { useTranslation } from "@plane/i18n";
 import { Loader } from "@plane/ui";
 // components
 import { ProjectCustomFieldValueInput } from "@/components/project-custom-fields";
+import { RelatedContractsBlock } from "@/components/contract/related-contracts-block";
 // hooks
 import { useProjectCustomField } from "@/hooks/store/use-project-custom-field";
 
@@ -102,6 +103,10 @@ export const ProjectInfoRoot = observer(function ProjectInfoRoot() {
             </div>
           </section>
         ))}
+        {/* Phase B.1b: read-only block that lists contracts linked to this project.
+            Sits below the field groups, matching the project-info page's
+            "scroll-down for less-frequently-edited data" convention. */}
+        <RelatedContractsBlock projectId={projectId!.toString()} />
       </div>
     </div>
   );
