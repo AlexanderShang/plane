@@ -96,3 +96,50 @@ class ContractProjectSerializer(BaseSerializer):
         if value is not None and value > 1:
             raise serializers.ValidationError(detail="ALLOCATION_RATIO_OUT_OF_RANGE")
         return value
+
+
+class ContractCreateSerializer(BaseSerializer):
+    """Write payload for POST /workspaces/<slug>/contracts/. workspace is
+    resolved from the URL slug by the view's perform_create; contract_no is
+    set by the user (it's the business identifier) and uniqueness against the
+    workspace's other rows is enforced by the DB UniqueConstraint. The view
+    catches IntegrityError and re-raises as a 400 with CONFLICT_CONTRACT_NO
+    so the frontend can show a meaningful toast."""
+
+    class Meta:
+        model = Contract
+        fields = [
+            "contract_no",
+            "contract_name",
+            "contract_type",
+            "customer",
+            "sign_date",
+            "start_date",
+            "end_date",
+            "total_amount",
+            "tax_rate",
+            "status",
+        ]
+
+
+class ContractUpdateSerializer(BaseSerializer):
+    """Write payload for PATCH /workspaces/<slug>/contracts/<uuid>/. contract_no
+    is intentionally omitted from `fields`: the business identifier is
+    immutable after creation so a UI that accidentally sends the original
+    contract_no still works (it's ignored), and so a UI that sends a different
+    contract_no does not silently rename a contract's identity. Changing the
+    identity, if ever needed, is a separate destroy+create flow."""
+
+    class Meta:
+        model = Contract
+        fields = [
+            "contract_name",
+            "contract_type",
+            "customer",
+            "sign_date",
+            "start_date",
+            "end_date",
+            "total_amount",
+            "tax_rate",
+            "status",
+        ]

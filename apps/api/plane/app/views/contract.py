@@ -13,13 +13,19 @@
 # (allocation_ratio, etc.) that the import command does not need to touch.
 
 # Third-party imports
+from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 # Module imports
-from plane.app.permissions import ROLE
-from plane.app.serializers import ContractProjectSerializer, ContractSerializer
+from plane.app.permissions import ROLE, allow_permission
+from plane.app.serializers import (
+    ContractCreateSerializer,
+    ContractProjectSerializer,
+    ContractSerializer,
+    ContractUpdateSerializer,
+)
 from plane.db.models import Contract, ContractProject, WorkspaceMember
 from .base import BaseViewSet
 
@@ -92,6 +98,60 @@ class ContractViewSet(BaseViewSet):
             return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)
         serializer = ContractSerializer(contract, context=self.get_serializer_context())
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @allow_permission([ROLE.ADMIN])
+    def create(self, request, slug):
+        # contract_no uniqueness against the workspace is enforced by a DB
+        # UniqueConstraint. We catch IntegrityError here and translate it to
+        # a 400 with a stable error code so the frontend can show a meaningful
+        # toast without having to introspect a 500 stack trace.
+        serializer = ContractCreateSerializer(data=request.data, context={"workspace_slug": slug})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                contract = serializer.save(workspace_id=self._workspace_id_from_slug(slug))
+        except IntegrityError:
+            return Response(
+                {"error": "CONFLICT_CONTRACT_NO", "detail": "A contract with this contract_no already exists in this workspace."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(ContractSerializer(contract, context=self.get_serializer_context()).data, status=status.HTTP_201_CREATED)
+
+    @allow_permission([ROLE.ADMIN])
+    def partial_update(self, request, slug, pk):
+        contract = self.get_queryset().filter(pk=pk).first()
+        if not contract:
+            return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ContractUpdateSerializer(contract, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(ContractSerializer(contract, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
+
+    @allow_permission([ROLE.ADMIN])
+    def destroy(self, request, slug, pk):
+        # ContractProject rows reference Contract with on_delete=CASCADE on
+        # the related_name='project_links' FK, so deleting a contract removes
+        # its links in the same transaction. No frontend or admin cleanup
+        # step is required.
+        contract = self.get_queryset().filter(pk=pk).first()
+        if not contract:
+            return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)
+        contract.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _workspace_id_from_slug(self, slug):
+        # Hot path: the slug is already in self.kwargs; resolve the workspace
+        # id once per request and cache on the view so create() + the
+        # post-create serializer share the lookup. Not strictly necessary at
+        # this request volume, but keeps the view-level code symmetric with
+        # ProjectCustomFieldViewSet.create which does the same.
+        if not hasattr(self, "_cached_workspace_id"):
+            self._cached_workspace_id = WorkspaceMember.objects.filter(
+                workspace__slug=slug, member=self.request.user, is_active=True
+            ).values_list("workspace_id", flat=True).first()
+        return self._cached_workspace_id
 
 
 # ContractProjectViewSet follows the same pattern as ContractViewSet above
