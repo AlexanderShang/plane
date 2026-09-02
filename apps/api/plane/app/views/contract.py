@@ -14,13 +14,13 @@
 
 # Third-party imports
 from rest_framework import status
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 # Module imports
-from plane.app.permissions import ROLE, allow_permission
+from plane.app.permissions import ROLE
 from plane.app.serializers import ContractProjectSerializer, ContractSerializer
-from plane.db.models import Contract, ContractProject, ProjectMember
+from plane.db.models import Contract, ContractProject, WorkspaceMember
 from .base import BaseViewSet
 
 
@@ -33,9 +33,15 @@ class ContractAccessPermission(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_anonymous:
             return False
+        # Match the pattern used by ProjectCustomFieldAccessPermission: read
+        # the workspace from the BaseViewSet-managed `view.workspace_slug` property
+        # rather than digging into view.kwargs directly. Future changes to the
+        # URL kwarg name (e.g. `<str:slug>` -> `<str:workspace_slug>`) will then
+        # # keep working without silent permission failures.
+        workspace_slug = view.workspace_slug
         if request.method in ("GET", "HEAD", "OPTIONS"):
             return WorkspaceMember.objects.filter(
-                workspace__slug=view.kwargs.get("slug"),
+                workspace__slug=workspace_slug,
                 member=request.user,
                 role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value],
                 is_active=True,
@@ -44,7 +50,7 @@ class ContractAccessPermission(BasePermission):
         # authorisation. (The import command bypasses DRF entirely and writes
         # via ORM, so the permission here only gates UI/API callers.)
         return WorkspaceMember.objects.filter(
-            workspace__slug=view.kwargs.get("slug"),
+            workspace__slug=workspace_slug,
             member=request.user,
             role=ROLE.ADMIN.value,
             is_active=True,
@@ -60,7 +66,11 @@ class ContractViewSet(BaseViewSet):
         return super().get_serializer(*args, **kwargs)
 
     def get_queryset(self):
-        return Contract.objects.filter(workspace__slug=self.kwargs.get("slug"))
+        # prefetch_related avoids the N+1 that ContractSerializer.get_project_links
+        # would otherwise trigger: a workspace with 200 contracts each linked to
+        # 5 projects would have produced 200 extra queries without this. The
+        # retrieve() path benefits too (one contract, one extra query normally).
+        return Contract.objects.filter(workspace__slug=self.kwargs.get("slug")).prefetch_related("project_links")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -84,13 +94,8 @@ class ContractViewSet(BaseViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# Importing here (not at module top) to avoid a circular import when serializers/
-# views modules load each other for type discovery. IsAuthenticated is exported
-# from rest_framework.permissions in BaseViewSet's chain; we re-import to make
-# the permission_classes tuple on each ViewSet explicit.
-from rest_framework.permissions import IsAuthenticated  # noqa: E402
-
-
+# ContractProjectViewSet follows the same pattern as ContractViewSet above
+# (top-level IsAuthenticated import, view.workspace_slug-based permission).
 class ContractProjectViewSet(BaseViewSet):
     """Per-project view of the contract-project join rows. Read-only at the
     project level: the import command is the only writer today, and the planned

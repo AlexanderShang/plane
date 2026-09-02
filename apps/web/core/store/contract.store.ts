@@ -106,27 +106,33 @@ export class ContractStore implements IContractStore {
     const all = this.contractsByWorkspace[workspaceSlug] ?? [];
     const links = this.linksByProject[`${workspaceSlug}::${projectId}`] ?? [];
     if (all.length === 0 || links.length === 0) return [];
-    // Build a project_id -> link lookup once, then join in a single pass. O(n+m)
-    // where n=contracts, m=links. We keep the iteration in the function body
-    // (rather than computedFn) because both observables are already tracked.
-    const linkByProjectId = new Map<string, IProjectContractLink>();
+    // Index the project's link rows by contract id once (m=links entries) so
+    // the per-contract lookup is O(1) instead of O(m). The previous version
+    // built a Map and never read it (F1), and then ran a `.find()` over the
+    // embedded contract.project_links for every contract, making the join
+    // O(n*m). This implementation is O(n+m).
+    const linkByContractId = new Map<string, IProjectContractLink>();
     for (const link of links) {
-      linkByProjectId.set(link.project, link);
+      linkByContractId.set(link.contract, link);
     }
-    return all
-      .filter((contract) =>
-        (contract.project_links ?? []).some((l) => l.project_id === projectId)
-      )
-      .map((contract) => {
-        // Mirror the linked contract's allocation_ratio onto the contract so
-        // the block can render "10%" without separately indexing links.
-        const ownLink = (contract.project_links ?? []).find((l) => l.project_id === projectId);
-        return {
-          ...contract,
-          // Field name kept the same as the join row's allocation_ratio so the
-          // block reads one shape regardless of which source it consumed.
-          allocation_ratio: ownLink?.allocation_ratio ?? null,
-        };
+    const result: (IContract & { allocation_ratio: string | null })[] = [];
+    for (const contract of all) {
+      // The link is per-project, so a contract can show up here only if one of
+      // its embedded project_links points at projectId (the endpoint already
+      // pre-filtered by project, but the workspace contract list does not).
+      const ownLinkFromServer = (contract.project_links ?? []).find((l) => l.project_id === projectId);
+      if (!ownLinkFromServer) continue;
+      const ownLinkFromPerProject = linkByContractId.get(contract.id);
+      result.push({
+        ...contract,
+        // Prefer the per-project endpoint's allocation_ratio when present, so
+        // the block shows the row-scoped share even if the workspace endpoint
+        // has a different value (e.g. a re-import updated the link but not the
+        // cache yet). Fall back to the embedded link when the per-project
+        // endpoint is empty or stale.
+        allocation_ratio: ownLinkFromPerProject?.allocation_ratio ?? ownLinkFromServer.allocation_ratio ?? null,
       });
+    }
+    return result;
   }
 }
