@@ -13,12 +13,14 @@ urlpatterns = [
     # not per-project, so the URL prefix is /workspaces/<slug>/contracts/...
     path(
         "workspaces/<str:slug>/contracts/",
-        ContractViewSet.as_view({"get": "list"}),
+        ContractViewSet.as_view({"get": "list", "post": "create"}),
         name="workspace-contracts",
     ),
     path(
         "workspaces/<str:slug>/contracts/<uuid:pk>/",
-        ContractViewSet.as_view({"get": "retrieve"}),
+        ContractViewSet.as_view(
+            {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
+        ),
         name="workspace-contract",
     ),
     # Per-project read of the join rows: which contracts cover THIS project.

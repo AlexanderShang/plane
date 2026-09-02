@@ -50,7 +50,12 @@ from .project_custom_field import (
     ProjectCustomFieldSerializer,
     ProjectCustomFieldValueSerializer,
 )
-from .contract import ContractProjectSerializer, ContractSerializer
+from .contract import (
+    ContractCreateSerializer,
+    ContractProjectSerializer,
+    ContractSerializer,
+    ContractUpdateSerializer,
+)
 from .state import StateSerializer, StateLiteSerializer
 from .view import IssueViewSerializer, ViewIssueListSerializer
 from .cycle import (
