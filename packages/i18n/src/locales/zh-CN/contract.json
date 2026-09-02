@@ -1,5 +1,6 @@
 {
   "contract": {
+    "placeholder_badge": "未签约",
     "list": {
       "title": "合同",
       "description": "工作区级别的合同主数据。点击行查看或编辑。",
@@ -64,6 +65,10 @@
     "related_contracts": {
       "heading": "关联合同",
       "empty": "该项目暂未关联合同。"
+    },
+    "related_projects": {
+      "heading": "关联项目",
+      "empty": "该合同暂未关联项目。"
     }
   }
 }

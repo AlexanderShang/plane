@@ -20,8 +20,10 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
 import { useTranslation } from "@plane/i18n";
+import { Badge } from "@plane/propel/badge";
 import { Loader } from "@plane/ui";
 // components
+import { isPlaceholderContractNo } from "./contract-placeholder";
 // hooks
 import { useContract } from "@/hooks/store/use-contract";
 
@@ -100,6 +102,13 @@ export const RelatedContractsBlock = observer(function RelatedContractsBlock(pro
                         {contract.contract_name}
                       </span>
                     ) : null}
+                    {isPlaceholderContractNo(contract.contract_no) && (
+                      <span className="ml-2 inline-block">
+                        <Badge variant="warning" size="sm">
+                          {t("contract.placeholder_badge")}
+                        </Badge>
+                      </span>
+                    )}
                   </span>
                   <span className="truncate text-body-xs-regular text-tertiary">
                     {[

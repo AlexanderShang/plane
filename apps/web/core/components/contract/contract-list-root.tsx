@@ -17,12 +17,14 @@ import { useParams } from "next/navigation";
 import { Plus } from "lucide-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
+import { Badge } from "@plane/propel/badge";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IContract } from "@plane/types";
 import { Loader } from "@plane/ui";
 // components
 import { ContractFormModal } from "./contract-form-modal";
+import { isPlaceholderContractNo } from "./contract-placeholder";
 // hooks
 import { useContract } from "@/hooks/store/use-contract";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -100,6 +102,13 @@ export const ContractListRoot = observer(function ContractListRoot() {
                       <Link href={`/${ws}/settings/contracts/${c.id}/`} className="hover:underline">
                         {c.contract_no}
                       </Link>
+                      {isPlaceholderContractNo(c.contract_no) && (
+                        <span className="ml-2 inline-block">
+                          <Badge variant="warning" size="sm">
+                            {t("contract.placeholder_badge")}
+                          </Badge>
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-body-sm-regular text-secondary">{c.contract_name || "—"}</td>
                     <td className="px-4 py-2 text-body-sm-regular text-secondary">{c.customer || "—"}</td>
