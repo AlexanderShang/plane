@@ -187,7 +187,6 @@ export class CoreRootStore {
     this.powerK = new PowerKStore();
     this.timelineStore = new TimeLineStore(this);
   }
-}
 
   resetOnSignOut() {
     // handling the system theme when user logged out from the app
