@@ -31,6 +31,7 @@ from .project_custom_field import (
 )
 
 from .project_custom_field_email import ProjectCustomFieldDataEmailEndpoint
+from .contract import ContractProjectViewSet, ContractViewSet
 
 from .user.base import (
     UserEndpoint,
