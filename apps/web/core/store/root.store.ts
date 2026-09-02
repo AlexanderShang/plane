@@ -60,6 +60,8 @@ import type { IProjectRootStore } from "./project";
 import { ProjectRootStore } from "./project";
 import type { IProjectCustomFieldStore } from "./project-custom-field.store";
 import { ProjectCustomFieldStore } from "./project-custom-field.store";
+import type { IContractStore } from "./contract.store";
+import { ContractStore } from "./contract.store";
 import type { IProjectDataEmailStore } from "./project-data-email.store";
 import { ProjectDataEmailStore } from "./project-data-email.store";
 import type { IProjectViewStore } from "./project-view.store";
@@ -90,6 +92,7 @@ export class CoreRootStore {
   state: IStateStore;
   label: ILabelStore;
   projectCustomField: IProjectCustomFieldStore;
+  contract: IContractStore;
   projectDataEmail: IProjectDataEmailStore;
   dashboard: IDashboardStore;
   analytics: IAnalyticsStore;
@@ -131,6 +134,7 @@ export class CoreRootStore {
     this.projectCustomField = new ProjectCustomFieldStore(this);
     this.projectDataEmail = new ProjectDataEmailStore(this);
     this.dashboard = new DashboardStore(this);
+    this.contract = new ContractStore(this);
     this.multipleSelect = new MultipleSelectStore();
     this.projectInbox = new ProjectInboxStore(this);
     this.projectPages = new ProjectPageStore(this);
@@ -144,6 +148,46 @@ export class CoreRootStore {
     this.powerK = new PowerKStore();
     this.timelineStore = new TimeLineStore(this);
   }
+
+  resetOnSignOut() {
+    // handling the system theme when user logged out from the app
+    localStorage.setItem("theme", "system");
+    void setLanguage(FALLBACK_LANGUAGE);
+    this.router = new RouterStore();
+    this.commandPalette = new CommandPaletteStore();
+    this.instance = new InstanceStore();
+    this.user = new UserStore(this);
+    this.theme = new ThemeStore();
+    this.workspaceRoot = new WorkspaceRootStore(this);
+    this.projectRoot = new ProjectRootStore(this);
+    this.memberRoot = new MemberRootStore(this);
+    this.cycle = new CycleStore(this);
+    this.cycleFilter = new CycleFilterStore(this);
+    this.module = new ModulesStore(this);
+    this.moduleFilter = new ModuleFilterStore(this);
+    this.projectView = new ProjectViewStore(this);
+    this.globalView = new GlobalViewStore(this);
+    this.issue = new IssueRootStore(this);
+    this.state = new StateStore(this);
+    this.label = new LabelStore(this);
+    this.projectCustomField = new ProjectCustomFieldStore(this);
+    this.projectDataEmail = new ProjectDataEmailStore(this);
+    this.dashboard = new DashboardStore(this);
+    this.contract = new ContractStore(this);
+    this.multipleSelect = new MultipleSelectStore();
+    this.projectInbox = new ProjectInboxStore(this);
+    this.projectPages = new ProjectPageStore(this);
+    this.projectEstimate = new ProjectEstimateStore(this);
+    this.workspaceNotification = new WorkspaceNotificationStore(this);
+    this.favorite = new FavoriteStore(this);
+    this.stickyStore = new StickyStore();
+    this.editorAssetStore = new EditorAssetStore();
+    this.analytics = new AnalyticsStore();
+    this.workItemFilters = new WorkItemFilterStore();
+    this.powerK = new PowerKStore();
+    this.timelineStore = new TimeLineStore(this);
+  }
+}
 
   resetOnSignOut() {
     // handling the system theme when user logged out from the app
