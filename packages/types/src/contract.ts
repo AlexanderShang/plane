@@ -55,14 +55,18 @@ export interface IContractProjectLink {
   relation_role: string;
 }
 
-/** The same join row, served by the per-project endpoint. Identical shape
- *  to IContractProjectLink minus the parent contract's id, which the
- *  frontend does not need at the project side because the project is
- *  already known from the URL. */
-export interface IProjectContractLink extends Omit<IContractProjectLink, "id"> {
+/** The same join row, served by the per-project endpoint. Carries the full
+ *  ContractProject shape because the per-project endpoint's serializer (apps/api/
+ *  plane/app/serializers/contract.py::ContractProjectSerializer) exposes the
+ *  same set of fields that the embedded project_links on the workspace endpoint
+ *  exposes -- only the nested join row's allocation_ratio is shared. */
+export interface IProjectContractLink {
   id: string;
   contract: string;
   project: string;
+  allocation_ratio: string | null;
+  relation_type: string;
+  relation_role: string;
   allocated_amount: string | null;
   scope_description: string;
   start_date: string | null;
