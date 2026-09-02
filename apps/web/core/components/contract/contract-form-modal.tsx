@@ -23,7 +23,7 @@ import { useTranslation } from "@plane/i18n";
 import { Input } from "@makeplane/propel/components/input";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
+import { EModalPosition, EModalWidth, EUserPermissions, EUserPermissionsLevel, ModalCore } from "@plane/ui";
 // hooks
 import { useContract } from "@/hooks/store/use-contract";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -91,7 +91,13 @@ export const ContractFormModal = observer(function ContractFormModal(props: Prop
   const { t } = useTranslation();
   const { createContract, updateContract } = useContract();
   const { allowPermissions } = useUserPermissions();
-  const canEdit = allowPermissions([1], 20 /* PROJECT level, ignored for ADMIN check */);
+  // Contract write is ADMIN-only at the workspace level (matches the
+  // ContractAccessPermission server-side gate). 20 / 'WORKSPACE' are the
+  // canonical values from @plane/constants; the previous literal `[1], 20`
+  // (introduced in 75d81d951, PR #17) was a typo: [1] is not a valid role
+  // and 20 as a "level" string argument was being silently dropped on the
+  // server-side because the comparison always resolved to false.
+  const canEdit = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
   // The view layer already gates write on ADMIN at the API; the form
   // additionally hides the Save button if the user can't write, so we
   // don't show a form that 403s on submit.
