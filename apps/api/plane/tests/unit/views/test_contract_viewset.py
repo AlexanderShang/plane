@@ -64,8 +64,11 @@ class TestContractViewSetCreate:
         assert second.data["error"] == "CONFLICT_CONTRACT_NO"
 
     def test_create_contract_member_role_is_forbidden(self, session_client, create_user):
-        """ContractAccessPermission allows read for MEMBER but not write --
-        a MEMBER-role user must be 403 on POST."""
+        """A MEMBER-role user must be 403 on POST. ContractAccessPermission
+        allows reads for MEMBER but reserves writes for ADMIN, and the
+        @allow_permission([ROLE.ADMIN], level='WORKSPACE') decorator on the
+        view enforces that as a second gate. Either layer alone would 403;
+        the test pins the behaviour from the user's perspective."""
         ws = Workspace.objects.create(name="WS", slug=f"ws-{create_user.id.hex[:8]}", owner=create_user)
         WorkspaceMember.objects.create(workspace=ws, member=create_user, role=15, is_active=True)  # MEMBER
         url = f"/api/workspaces/{ws.slug}/contracts/"

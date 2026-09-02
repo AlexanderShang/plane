@@ -121,6 +121,16 @@ class ContractCreateSerializer(BaseSerializer):
             "status",
         ]
 
+    def validate_contract_no(self, value):
+        # Normalise the business identifier so a UI that submits
+        # "  HT2026-001  " (whitespace from copy-paste) or "ht2026-001"
+        # (lowercased by an over-eager autocomplete) cannot accidentally
+        # create a duplicate row that the import command would have deduped
+        # against its own normalisation. Stripping + case-folding here means
+        # the DB UniqueConstraint sees a single canonical form and the
+        # IntegrityError path fires correctly.
+        return value.strip().upper()
+
 
 class ContractUpdateSerializer(BaseSerializer):
     """Write payload for PATCH /workspaces/<slug>/contracts/<uuid>/. contract_no

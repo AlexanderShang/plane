@@ -99,7 +99,7 @@ class ContractViewSet(BaseViewSet):
         serializer = ContractSerializer(contract, context=self.get_serializer_context())
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @allow_permission([ROLE.ADMIN])
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
     def create(self, request, slug):
         # contract_no uniqueness against the workspace is enforced by a DB
         # UniqueConstraint. We catch IntegrityError here and translate it to
@@ -116,9 +116,15 @@ class ContractViewSet(BaseViewSet):
                 {"error": "CONFLICT_CONTRACT_NO", "detail": "A contract with this contract_no already exists in this workspace."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Reload with prefetch so ContractSerializer.get_project_links does
+        # not trigger an extra query for the response payload. The brand-new
+        # contract has no project_links yet, so this is one query with zero
+        # rows -- small -- but it keeps the create path symmetric with the
+        # list/retrieve paths which already pay the prefetch cost.
+        contract = Contract.objects.prefetch_related("project_links").get(pk=contract.pk)
         return Response(ContractSerializer(contract, context=self.get_serializer_context()).data, status=status.HTTP_201_CREATED)
 
-    @allow_permission([ROLE.ADMIN])
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
     def partial_update(self, request, slug, pk):
         contract = self.get_queryset().filter(pk=pk).first()
         if not contract:
@@ -129,7 +135,7 @@ class ContractViewSet(BaseViewSet):
         serializer.save()
         return Response(ContractSerializer(contract, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
 
-    @allow_permission([ROLE.ADMIN])
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
     def destroy(self, request, slug, pk):
         # ContractProject rows reference Contract with on_delete=CASCADE on
         # the related_name='project_links' FK, so deleting a contract removes
@@ -142,16 +148,16 @@ class ContractViewSet(BaseViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _workspace_id_from_slug(self, slug):
-        # Hot path: the slug is already in self.kwargs; resolve the workspace
-        # id once per request and cache on the view so create() + the
-        # post-create serializer share the lookup. Not strictly necessary at
-        # this request volume, but keeps the view-level code symmetric with
-        # ProjectCustomFieldViewSet.create which does the same.
-        if not hasattr(self, "_cached_workspace_id"):
-            self._cached_workspace_id = WorkspaceMember.objects.filter(
-                workspace__slug=slug, member=self.request.user, is_active=True
-            ).values_list("workspace_id", flat=True).first()
-        return self._cached_workspace_id
+        # Resolve the workspace id from the URL slug + session user on every
+        # call. Caching on `self` is unsafe: ViewSet instances are typically
+        # per-request, but DRF's view-caching infrastructure (and a future
+        # `@cache_response` decorator) can share an instance across requests,
+        # which would let request N see request N-1's workspace_id -- an
+        # authorization footgun. The lookup is a single indexed query, so
+        # repeat calls are cheap enough not to cache.
+        return WorkspaceMember.objects.filter(
+            workspace__slug=slug, member=self.request.user, is_active=True
+        ).values_list("workspace_id", flat=True).first()
 
 
 # ContractProjectViewSet follows the same pattern as ContractViewSet above
