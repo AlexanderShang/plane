@@ -1,0 +1,69 @@
+{
+  "contract": {
+    "list": {
+      "title": "Contracts",
+      "description": "Workspace-level contract master data. Click a row to view or edit.",
+      "new_button": "New Contract",
+      "empty": "No contracts yet. Click \"New Contract\" to add one.",
+      "created_toast": "Contract created.",
+      "columns": {
+        "contract_no": "Contract no.",
+        "contract_name": "Name",
+        "customer": "Customer",
+        "sign_date": "Sign date"
+      }
+    },
+    "detail": {
+      "not_found": "This contract does not exist or has been deleted.",
+      "back_to_list": "Back to contracts",
+      "edit_button": "Edit",
+      "delete_button": "Delete",
+      "delete_confirm": "Delete this contract? Project links to it will be removed as well. This action cannot be undone.",
+      "delete_success": "Contract deleted.",
+      "delete_failed": "Failed to delete contract. Please try again.",
+      "fields": {
+        "contract_no": "Contract no.",
+        "contract_name": "Name",
+        "contract_type": "Type",
+        "customer": "Customer",
+        "sign_date": "Sign date",
+        "start_date": "Start date",
+        "end_date": "End date",
+        "total_amount": "Total amount",
+        "tax_rate": "Tax rate",
+        "status": "Status"
+      }
+    },
+    "form": {
+      "description": "Contract master fields. The contract no. is the business identifier and cannot be changed after creation.",
+      "create_title": "New contract",
+      "edit_title": "Edit contract",
+      "cancel": "Cancel",
+      "submit_create": "Create",
+      "submit_update": "Save",
+      "create_success": "Contract created.",
+      "update_success": "Contract saved.",
+      "errors": {
+        "contract_no_required": "Contract no. is required.",
+        "contract_no_conflict": "A contract with this contract no. already exists in this workspace.",
+        "save_failed": "Failed to save contract. Please try again."
+      },
+      "fields": {
+        "contract_no": "Contract no.",
+        "contract_name": "Name",
+        "contract_type": "Type",
+        "customer": "Customer",
+        "sign_date": "Sign date",
+        "start_date": "Start date",
+        "end_date": "End date",
+        "total_amount": "Total amount (万元)",
+        "tax_rate": "Tax rate",
+        "status": "Status"
+      }
+    },
+    "related_contracts": {
+      "heading": "Related contracts",
+      "empty": "No contracts are linked to this project yet."
+    }
+  }
+}

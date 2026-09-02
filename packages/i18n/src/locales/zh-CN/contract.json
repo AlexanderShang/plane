@@ -1,0 +1,69 @@
+{
+  "contract": {
+    "list": {
+      "title": "合同",
+      "description": "工作区级别的合同主数据。点击行查看或编辑。",
+      "new_button": "新建合同",
+      "empty": "暂无合同。点击「新建合同」添加。",
+      "created_toast": "合同已创建。",
+      "columns": {
+        "contract_no": "合同号",
+        "contract_name": "名称",
+        "customer": "客户",
+        "sign_date": "签订日期"
+      }
+    },
+    "detail": {
+      "not_found": "该合同不存在或已删除。",
+      "back_to_list": "返回合同列表",
+      "edit_button": "编辑",
+      "delete_button": "删除",
+      "delete_confirm": "确认删除该合同? 与该项目关联的所有链接也会被删除,操作不可撤销。",
+      "delete_success": "合同已删除。",
+      "delete_failed": "删除合同失败，请重试。",
+      "fields": {
+        "contract_no": "合同号",
+        "contract_name": "名称",
+        "contract_type": "类型",
+        "customer": "客户",
+        "sign_date": "签订日期",
+        "start_date": "起始日期",
+        "end_date": "结束日期",
+        "total_amount": "合同总额（万元）",
+        "tax_rate": "税率",
+        "status": "状态"
+      }
+    },
+    "form": {
+      "description": "合同主数据。合同号是业务标识符,创建后不可修改。",
+      "create_title": "新建合同",
+      "edit_title": "编辑合同",
+      "cancel": "取消",
+      "submit_create": "创建",
+      "submit_update": "保存",
+      "create_success": "合同已创建。",
+      "update_success": "合同已保存。",
+      "errors": {
+        "contract_no_required": "合同号不能为空。",
+        "contract_no_conflict": "该工作区已存在相同合同号的合同。",
+        "save_failed": "保存合同失败，请重试。"
+      },
+      "fields": {
+        "contract_no": "合同号",
+        "contract_name": "名称",
+        "contract_type": "类型",
+        "customer": "客户",
+        "sign_date": "签订日期",
+        "start_date": "起始日期",
+        "end_date": "结束日期",
+        "total_amount": "合同总额（万元）",
+        "tax_rate": "税率",
+        "status": "状态"
+      }
+    },
+    "related_contracts": {
+      "heading": "关联合同",
+      "empty": "该项目暂未关联合同。"
+    }
+  }
+}

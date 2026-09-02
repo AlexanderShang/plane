@@ -15,6 +15,7 @@
  */
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
@@ -88,7 +89,12 @@ export const RelatedContractsBlock = observer(function RelatedContractsBlock(pro
               <li key={contract.id} className="flex items-center justify-between gap-4 py-2.5">
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-body-sm-medium text-primary">
-                    {contract.contract_no}
+                    <Link
+                      href={`/${workspaceSlug}/settings/contracts/${contract.id}/`}
+                      className="hover:underline"
+                    >
+                      {contract.contract_no}
+                    </Link>
                     {contract.contract_name ? (
                       <span className="ml-2 text-body-sm-regular text-secondary">
                         {contract.contract_name}
