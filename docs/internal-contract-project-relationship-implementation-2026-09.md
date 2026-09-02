@@ -140,9 +140,9 @@ git revert 260ccae81   # 实施 commit
 |---|---|---|
 | `7b5154a9c` | `apps/api/plane/app/serializers/contract.py` (新建) | ContractSerializer + ContractProjectSerializer |
 | `7b5154a9c` | `apps/api/plane/app/views/contract.py` (新建) | ContractViewSet + ContractProjectViewSet + ContractAccessPermission (GUEST-reject 模式) |
-| `7b5159c` | `apps/api/plane/app/urls/contract.py` (新建) | URL 路由 |
-| `7b5159c` | `apps/api/plane/tests/unit/models/test_contract.py` (新建) | 3 个 model test (UniqueConstraint) |
-| `7b5159c` | 3 个 `__init__.py` | 注册符号 |
+| `7b5154a9c` | `apps/api/plane/app/urls/contract.py` (新建) | URL 路由 |
+| `7b5154a9c` | `apps/api/plane/tests/unit/models/test_contract.py` (新建) | 3 个 model test (UniqueConstraint) |
+| `7b5154a9c` | 3 个 `__init__.py` | 注册符号 |
 | `fe88596a8` | `apps/web/core/services/project/contract.service.ts` (新建) | 2 个 list 方法 |
 | `fe88596a8` | `apps/web/core/store/contract.store.ts` (新建) | MobX store + 2 个 fetch + 1 个 derived (getContractsForProject) |
 | `fe88596a8` | `apps/web/core/hooks/store/use-contract.ts` (新建) | context hook |
@@ -160,7 +160,7 @@ git revert 260ccae81   # 实施 commit
 - **PR #16 process tool**: commit `3550054ee` 加了 `tools/check_viewset_decorators.py` + AGENTS.md rule 4。**这是 F1 教训的产物**:如果当时有这工具,PR #15 不会需要 review fix。
 - **没跑独立测试环境**: PR #13 merge 前**没有真机跑过 pytest**,只在 worktree 做了 AST / grep 静态检查。回想起来这是 process gap,不是单 commit 的 bug。
 
-### Commit 时间线
+### Commit 时间线(B.1 范围)
 
 ```
 7b5154a9c  feat(api): Phase B.1a (Contract read API)
@@ -169,12 +169,9 @@ d0c8025f5  fix(contract): F1-F6 (N+1, view.workspace_slug, IProjectContractLink 
 b749482b4  Merge PR #13
 27153f6f7  docs: add Docker test guide for Phase B.1
 fe88596a8  feat(web): Phase B.1b (related-contracts block)
-4eee820f9  Merge PR #15 (wait — B.2a was the next PR, not B.1)
-16dd8d4ac  fix(contract): address PR #15 review findings (F1-F5)
-ce5945fcd  feat(api): add Contract write endpoints (Phase B.2a)
 ```
 
-注: PR #13 实际合并了 2 个 commit (B.1a + B.1b + docs),不是分别的 PR。
+注: PR #13 实际合并了 2 个 commit (B.1a + B.1b + docs),不是分别的 PR。PR #14/15 的 merge commit 列在 B.1 timeline 是因为它们发生在 B.1b 之后(为后续 B.2a 修复 F1-F5);具体 B.2a 自己的 commit 在 B.2a 段。
 
 ## B.2a — 后端 write API (PR #15, commit `ce5945fcd` + review fix `16dd8d4ac`)
 
@@ -286,7 +283,7 @@ ce5945fcd  feat(api): B.2a Contract write endpoints
 10. 不用 `--no-verify` / force-push
 11. (新增) cross-repo safety — 同规则 6+7
 
-实际节奏(本次会话): 18 个 PR + 1 个 test guide + 1 个 process tool, 跨度 5 小时,跨 3 个会话(per commit timestamp)。
+实际节奏(本次会话): 21 个 PR (#1-#21) + 1 个 test guide + 1 个 process tool,跨度 5h50m (PR #11 09-02 01:20 UTC → PR #21 09-02 07:10 UTC),commit timestamp 聚成 3 个 time cluster (01:20/02:21/05:41),不是 3 个独立 session 的证据。
 
 ## 未决问题(原文 Phase A 段保留)
 
