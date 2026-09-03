@@ -8,7 +8,7 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
 import { useTranslation } from "@plane/i18n";
-import { InfoFillIcon } from "@plane/propel/icons";
+import { InfoFilled } from "@makeplane/propel/icons";
 import { Breadcrumbs, Header } from "@plane/ui";
 // components
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
@@ -31,7 +31,7 @@ export const ProjectInfoHeader = observer(function ProjectInfoHeader() {
               <BreadcrumbLink
                 label={t("sidebar.project_info")}
                 href={`/${workspaceSlug}/projects/${projectId}/project-info/`}
-                icon={<InfoFillIcon className="h-4 w-4 text-tertiary" />}
+                icon={<InfoFilled className="h-4 w-4 text-tertiary" />}
                 isLast
               />
             }
