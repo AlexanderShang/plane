@@ -32,8 +32,16 @@ class ContractSerializer(BaseSerializer):
     # test suite and confuses the TypeScript frontend (string == string, not
     # string == UUID object). UUIDField.to_representation calls str() and
     # matches what the test (response.data['workspace_id'] == str(ws.id))
-    # and the frontend both expect. See PR #28.
-    workspace_id = serializers.UUIDField(source="workspace_id", read_only=True)
+    # and the frontend both expect.
+    #
+    # NB: `source=` is intentionally omitted. DRF 3.17 (Django 5.2) promoted
+    # the "redundant source" warning to AssertionError when source equals
+    # the field name; ContractSerializer now raises at class-construction
+    # time (HTTP 500 from every endpoint that materialises it) when
+    # source="workspace_id" is passed alongside a field also named
+    # workspace_id. DRF auto-detects source from field_name when no
+    # explicit source is given. See PR #29.
+    workspace_id = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = Contract
