@@ -884,3 +884,259 @@ docker compose -f docker-compose-local.yml exec api \
 - 实施记录: `docs/internal-contract-project-relationship-implementation-2026-09.md`
 - 原始 guide: `docs/contract-project-wsl2-test-guide.md` (step 1-18,本段为附录)
 
+## 20. Phase D 浏览器渲染测试 handoff (commit `cb7db6b12`)
+
+> **本段状态**: 2026-09-03 编写,与 step 1-18 并列,补完 Phase D 矩阵视图的浏览器端验证。前置条件: step 9 的 import_real 已成功跑完(52 projects / 39 contracts / 49 links),否则 matrix 会显示空状态 `no_contracts`。
+>
+> 本段聚焦**前端渲染测试**,而 step 12 是同一验证目标的旧版入口,两段可以二选一;本段是基于 source-trace `apps/web/core/components/contract/contract-matrix-root.tsx` 重写的更详细版本。
+
+### 20.1 Phase D 代码已 merge 状态
+
+| Commit | 内容 | 备注 |
+|--------|------|------|
+| `7a4ae42e2` | `feat(web): add contract × project matrix (Phase D)` | 初始 feature |
+| `92a4835a1` | `fix(contract): address PR #25 review findings (F1-F4)` | F1: `projectMap[id]` 替代错误 store API; F2: `TProject[]` 类型; F3: i18n title; F4: docstring |
+| `f20a7ba58` | `Merge pull request #25` | merge to fork-internal preview |
+| `dfef42915` | `fix(serializer): cast Contract.workspace_id to str` | PR #28,UUID str cast 配套 |
+| `528add893` | `fix(serializer): drop source='workspace_id' from ContractSerializer` | PR #29,DRF 3.17 redundant-source fix |
+| `cb7db6b12` | `Merge pull request #29` | 当前 fork-internal preview HEAD |
+
+`origin/preview` HEAD = `cb7db6b12`,worktree 同步到该 commit 后即可开始浏览器测试。
+
+### 20.2 Vite preflight (Phase D 浏览器测试的前置条件)
+
+> **背景**: 本会话前几轮用户在 WSL 2 上跑 `pnpm dev` 时,Vite 报 `@plane/constants` 解析失败。根因是 Plane monorepo 的 workspace 依赖未正确构建(workspace symlinks 缺失 + 内部 package 缺 `dist/`)。本节给出 standard 修复路径。
+
+```bash
+# 1. 拉最新 fork-internal preview
+cd ~/projects/plane
+git fetch origin
+git checkout claude/repo-code-summary-22f444
+git pull --ff-only
+# 预期 HEAD = cb7db6b12 (含 PR #25 + fix + #28 + #29)
+
+# 2. 验证 monorepo workspace config
+cat pnpm-workspace.yaml
+# 预期包含 'apps/*' 和 'packages/*'
+# (Plane 上游 default config,一般无需改)
+
+# 3. 安装 workspace 依赖
+pnpm install --frozen-lockfile
+# 关键 — 这会建立 packages/* 之间 + apps/* -> packages/* 的 symlinks,
+# 是 Vite resolution 失败最常见的 root cause
+
+# 4. 强制 build 内部 workspace 包(防止 dev server 解析失败)
+pnpm --filter=@plane/types build
+pnpm --filter=@plane/constants build
+pnpm --filter=@plane/i18n build
+pnpm --filter=@plane/ui build
+
+# 5. 验证 build output 存在
+ls packages/constants/dist/index.js
+ls packages/i18n/dist/index.js
+ls packages/types/dist/index.d.ts
+ls packages/ui/dist/index.js
+# 4 个文件都应存在
+```
+
+**如果 `pnpm install` 仍失败**: 检查 Node.js 版本(要求 >= 18,推荐 20.x)+ pnpm 版本(要求 8.x+):
+
+```bash
+node --version    # 预期 v18.x 或 v20.x
+pnpm --version    # 预期 8.x 或 9.x
+which pnpm        # 应是 corepack 提供的 pnpm,不是 npm install -g
+corepack enable   # 如果 pnpm 是别的来源
+corepack prepare pnpm@latest --activate
+```
+
+### 20.3 启动 dev server
+
+```bash
+cd apps/web
+pnpm dev
+
+# 预期输出 (示例,具体 log 因 Next.js 版本而异):
+#   ▲ Next.js 14.2.x
+#   - Local:        http://localhost:3000
+#   - Environments: .env.local
+#   ✓ Ready in Xs
+#
+# 看到 "Ready" 即成功。Failing: 走 step 20.5 fallback 路径
+```
+
+### 20.4 浏览器访问与预期渲染
+
+在 WSL 2 端的 **Windows 浏览器**(Chrome / Edge / Firefox 均可,但 Chrome/Edge 因 WSL 2 localhost forwarding 兼容性最好)访问:
+
+```
+http://localhost:3000/<WS_SLUG>/settings/(workspace)/contracts/matrix
+```
+
+其中 `<WS_SLUG>` 替换为 step 8 创建的 workspace slug(例如 `test-1b02c0f8`)。
+
+完整 URL 示例:
+
+```
+http://localhost:3000/test-1b02c0f8/settings/(workspace)/contracts/matrix
+```
+
+注: URL path 中的 `(workspace)` 是 Next.js route group,浏览器地址栏可能显示 `%20` 编码或自动展开成 `settings/workspace/contracts/matrix` — 这是 normal behavior,直接复制 path segment 即可。
+
+#### 20.4.1 浏览器 DevTools 必查项 (Console + Network + Elements tabs)
+
+| 检查 | 预期 | Fail signal |
+|------|------|-------------|
+| Console 红色 error | 无 | "Failed to resolve import" / "Cannot find module" / "Hydration mismatch" |
+| Console 黄色 warning | 可容忍 | "deprecated" / "key prop missing" — 记录后 review |
+| Network 5xx | 无 | 任何 5xx 都阻断 matrix 渲染 |
+| Network 4xx | 看上下文 | `/api/workspaces/.../contracts/` 4xx 是问题;`/api/users/.../theme/` 4xx 容忍 |
+| Network `/contracts/` payload | 200 + 39 items | 500 / 0 items → 检查 backend |
+| Network `/projects/` payload | 200 + 52 items | 500 / 0 items → 检查 backend |
+
+#### 20.4.2 matrix 渲染预期(source-trace 自 `contract-matrix-root.tsx`)
+
+| 元素 | 预期行为 |
+|------|----------|
+| 页面 title | i18n: 浏览器 locale 是 `zh-CN` 则显示 "合同矩阵"; `en` 则 "Contract × Project Matrix" |
+| Loading skeleton | 短暂出现后被表格替换;**永远 skeleton** = 数据 store 未完成 |
+| 表格行数 | 39 (contract 数) — `contractsByWorkspace[ws].length` |
+| 表格列数 | 52 (project 数) — `workspaceProjectIds.length` |
+| 表头第 1 行第 1 列 | i18n `contract.matrix.column.contract` ("合同" / "Contract") |
+| 表头第 1 行其余列 | 52 个 project 名(name + identifier 双行) |
+| 表格体 | 39 行 × 52 列 = 2028 cell |
+| Cell 有 link (绿底) | `bg-success-subtle` + `formatRatio(allocation_ratio)` (例 "10 %") |
+| Cell 无 link (灰) | 空内容 + `text-tertiary` |
+| Filter 第 1 个 select | `customer` dropdown,选项从 contract 集合 unique 提取 |
+| Filter 第 2 个 select | `status` dropdown,选项从 contract 集合 unique 提取 |
+| Filter 交互 | 选 customer 后,行数变少(不匹配 contract 被过滤) |
+| 水平 scroll | 列多时容器出滚动条(不撑爆整个页面) |
+| Hover 链接 cell | title 属性显示原始 ratio (e.g. `0.1000`) |
+| Sticky header | 垂直滚动时,表头第 1 行保持 sticky 在顶部 |
+| Empty state: 无 contract | 显示 `no_contracts` 文案 + 链接到合同列表页 |
+| Empty state: 无 project | 显示 `no_projects` 文案 |
+| Empty state: 无权限 | 显示 `no_access` 文案(workspace 权限不足) |
+
+#### 20.4.3 交互行为(链接跳转)
+
+| 操作 | 预期 |
+|------|------|
+| 点击第一列 contract 名 | 跳到 `/[workspaceSlug]/settings/(workspace)/contracts/[contractId]` (B.2b 已 ship 的详情页) |
+| 点击表头 project 名 | 跳到 `/[workspaceSlug]/projects/[projectId]/issues` (Plane 标准 project 页) |
+| Filter "all" 选项 | 重置 filter,显示全量 39 contracts |
+| Filter 切回 "all" 后 URL | 不变(filter 是 in-memory state, 不进 query string) |
+
+### 20.5 Fallback: 如果 Vite dev 仍失败, 改用 production build
+
+```bash
+# 1. Production build
+cd ~/projects/plane
+pnpm --filter=@plane/web build
+# 预期: exit 0, .next/ 目录生成
+
+# 2. 启动 production server
+pnpm --filter=@plane/web start
+# 预期输出:
+#   ▲ Next.js 14.2.x (production)
+#   - Local: http://localhost:3000
+#   ✓ Ready in Xs
+```
+
+Production build 把所有 workspace 依赖都 inline-bundle,绕开 Vite dev server 的 symlink 解析。**若 production build + start 跑通但 dev 跑不通,说明 Vite 问题是 dev-only configuration issue,不是 Phase D 代码问题**。
+
+### 20.6 给本地 Agent 的操作步骤
+
+```bash
+# === 1. Vite preflight ===
+cd ~/projects/plane
+git fetch origin
+git pull --ff-only   # 预期 HEAD = cb7db6b12
+pnpm install --frozen-lockfile
+pnpm --filter=@plane/types build && \
+pnpm --filter=@plane/constants build && \
+pnpm --filter=@plane/i18n build && \
+pnpm --filter=@plane/ui build
+ls packages/constants/dist/index.js   # 验证存在
+
+# === 2. 启动 dev server ===
+cd apps/web
+pnpm dev
+# 等到 "Ready" log
+# 不开 dev server: 跳到 20.5 production build fallback
+
+# === 3. 浏览器访问(在 Windows 端 Chrome/Edge) ===
+# URL: http://localhost:3000/<WS_SLUG>/settings/(workspace)/contracts/matrix
+# WS_SLUG = step 8 创建的 slug, 例如 test-1b02c0f8
+
+# === 4. 按 20.4 checklist 验证 ===
+# 4.1 DevTools console / network
+# 4.2 矩阵渲染(39 行 × 52 列)
+# 4.3 链接 cell 绿底 + 百分比
+# 4.4 filter 交互
+# 4.5 点击 contract 跳转详情页
+# 4.6 点击 project 跳转 project 页
+
+# === 5. 验证后清理 ===
+# 浏览器关 tab 即可; dev server 在前台跑,
+# 不用时 Ctrl+C 结束。
+```
+
+### 20.7 已知 blocker 与环境边界
+
+- **Vite `@plane/constants` resolution failure**: 本会话前几轮用户 WSL 2 + Docker Desktop 跑 `pnpm dev` 时遇到。**Root cause 不是代码 regression**,是 monorepo workspace setup 问题; 20.2 的 preflight 是 standard 修复路径,若仍失败请用 20.5 production build fallback。
+- **WSL 2 localhost forwarding**: `http://localhost:3000` 在 Windows 端浏览器应能直接访问;若不能,试 `http://127.0.0.1:3000` 或 WSL 2 分配的 IP `hostname -I` 中第一个 IP 替换 `localhost`。
+- **i18n locale**: 浏览器 Accept-Language header 决定 locale。强制 zh-CN: 浏览器设置 → Languages → Add `Chinese (Simplified, China)` 并拖到顶部。
+- **import_real 未跑**: 若是 dry-run-only, matrix 显示 `no_contracts` 空状态(20.4.2 第 3 行),这是 correct behavior 不是 bug。先跑 `python manage.py import_historical_project_data /code/test-data.xlsx --workspace <WS_SLUG> --no-dry-run` 再来测试。
+
+### 20.8 Bug Report Template(发现 visual bug 时)
+
+```markdown
+## Phase D Matrix Visual Bug
+
+### Environment
+- WSL 2 + Docker Desktop
+- 浏览器:Chrome X.Y (Windows 端)
+- URL: http://localhost:3000/<WS_SLUG>/settings/(workspace)/contracts/matrix
+- Workspace: <WS_SLUG> (= test-1b02c0f8)
+- 数据: 52 projects / 39 contracts / 49 links (import_real 已跑)
+- HEAD: cb7db6b12
+- Dev server path: pnpm dev (Vite) / pnpm start (production)
+
+### Steps
+1. <具体步骤>
+2. <具体步骤>
+
+### Expected
+[screenshot URL] 或 [DOM snapshot]
+
+### Actual
+[screenshot URL] 或 [DOM snapshot]
+
+### Console errors
+[完整 red error paste]
+
+### Network 5xx
+[failing request URL + status]
+
+### Vite 状态
+[ ] pnpm dev 启动成功 (Ready log)
+[ ] pnpm dev 失败,改用 pnpm start
+[ ] pnpm install 输出 (success / error)
+```
+
+### 20.9 关联引用
+
+- Phase D feature commit: `7a4ae42e2 feat(web): add contract × project matrix (Phase D)`
+- Phase D fix commit: `92a4835a1 fix(contract): address PR #25 review findings (F1-F4)`
+- 配套 backend fix: `dfef42915` (PR #28 UUID str cast) + `528add893` (PR #29 DRF 3.17 source=)
+- merge commits: `f20a7ba58` (PR #25) + `cb7db6b12` (PR #29)
+- Phase D PRs:
+  - <https://github.com/AlexanderShang/plane/pull/25> (matrix)
+  - <https://github.com/AlexanderShang/plane/pull/28> (UUID str)
+  - <https://github.com/AlexanderShang/plane/pull/29> (DRF 3.17)
+- Phase D code: `apps/web/core/components/contract/contract-matrix-root.tsx` (328 lines, F1 fix verified)
+- Phase D route: `apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/contracts/matrix/page.tsx`
+- Phase D i18n keys: `packages/i18n/src/locales/{en,zh-CN}/contract.json` (10 keys, `contract.matrix.*`)
+- Phase D stores: `useProject().fetchProjects` + `useContract().fetchWorkspaceContracts`
+- 方案: `docs/internal-contract-project-relationship.md` (Phase D 章节)
+- 实施记录: `docs/internal-contract-project-relationship-implementation-2026-09.md` (Phase D 段落)
+- 原始 guide: `docs/contract-project-wsl2-test-guide.md` (step 1-18,本段为附录,与 Section 12 互补)
