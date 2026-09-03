@@ -256,7 +256,7 @@ class Command(BaseCommand):
         stats = {"created": 0, "skipped_blank": 0, "skipped_no_key": 0, "skipped_duplicate": 0, "skipped_error": 0}
         field_warning_count = 0
         seen_keys_this_run = set()
-        seen_contracts_this_run = set()  # Contract.contract_no -> Contract (for get_or_create idempotency within one import run)
+        seen_contracts_this_run = {}  # Contract.contract_no -> Contract (for get_or_create idempotency within one import run)
 
         for row_idx in range(options["start_row"], worksheet.max_row + 1):
             raw_values, coerced, row_warnings = parse_row(
