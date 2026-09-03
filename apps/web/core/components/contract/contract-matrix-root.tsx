@@ -43,7 +43,12 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
   const { workspaceSlug } = useParams();
   const { t } = useTranslation();
   const { fetchWorkspaceContracts, contractsByWorkspace, contractsFetched } = useContract();
-  const { getProjectById, workspaceProjects, fetchWorkspaceProjects, workspaceProjectsFetched } = useProject();
+  // Use the actual IProjectStore fields: projectMap is the Record<id, TProject>
+  // already loaded by fetchProjects(); workspaceProjectIds is the computed list
+  // of ids; fetchStatus is the lifecycle indicator. The PR #25 review caught
+  // a previous version that used 'workspaceProjects(...)' as a function and
+  // 'workspaceProjectsFetched' as a Record -- neither exists on the store.
+  const { projectMap, workspaceProjectIds, fetchProjects, fetchStatus } = useProject();
   const { allowPermissions } = useUserPermissions();
   const canView = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
@@ -56,8 +61,8 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
   useEffect(() => {
     if (!workspaceSlug) return;
     void fetchWorkspaceContracts(workspaceSlug.toString());
-    void fetchWorkspaceProjects(workspaceSlug.toString());
-  }, [workspaceSlug, fetchWorkspaceContracts, fetchWorkspaceProjects]);
+    void fetchProjects(workspaceSlug.toString());
+  }, [workspaceSlug, fetchWorkspaceContracts, fetchProjects]);
 
   // The column set is the workspace's project list, optionally narrowed by
   // the projectIdFilter prop. The row set is the workspace's contract list,
@@ -66,8 +71,13 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
     const allContracts = workspaceSlug
       ? contractsByWorkspace[workspaceSlug.toString()] ?? []
       : [];
+    // Resolve workspaceProjectIds into full TProject records via projectMap.
+    // A missing project (deleted between fetches) is silently dropped, which
+    // matches the list page's own rendering tolerance.
     const allProjects = workspaceSlug
-      ? Object.values(workspaceProjects(workspaceSlug.toString()) ?? {})
+      ? (workspaceProjectIds ?? [])
+          .map((id) => projectMap[id])
+          .filter((p): p is NonNullable<typeof p> => Boolean(p))
       : [];
     const filteredProjects = props.projectIdFilter
       ? allProjects.filter((p) => props.projectIdFilter!(p.id))
@@ -89,7 +99,7 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
       customers: Array.from(customerSet).sort(),
       statuses: Array.from(statusSet).sort(),
     };
-  }, [workspaceSlug, contractsByWorkspace, workspaceProjects, customerFilter, statusFilter, props.projectIdFilter]);
+  }, [workspaceSlug, contractsByWorkspace, workspaceProjectIds, projectMap, customerFilter, statusFilter, props.projectIdFilter]);
 
   // Build an O(N + M) lookup table from the contract list. Each contract's
   // project_links array is already embedded in the API response, so the
@@ -112,7 +122,10 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
   }
   const ws = workspaceSlug.toString();
   const contractsReady = contractsFetched[ws];
-  const projectsReady = workspaceProjectsFetched[ws];
+  // IProjectStore exposes fetchStatus as a single observable rather than a
+  // per-workspace Record; 'complete' is the terminal value set by
+  // fetchProjects() (project.store.ts:348), so this is the correct gate.
+  const projectsReady = fetchStatus === "complete";
 
   if (!contractsReady || !projectsReady) {
     return (
@@ -257,7 +270,7 @@ export const ContractMatrixRoot = observer(function ContractMatrixRoot(props: Pr
  */
 const ContractMatrixRow = observer(function ContractMatrixRow(props: {
   contract: import("@plane/types").IContract;
-  projects: ReturnType<typeof useProject> extends infer _ ? never : Array<{ id: string; name: string; identifier: string }>;
+  projects: import("@plane/types").TProject[];
   linkByContractProject: Map<string, string | null>;
 }) {
   const { contract, projects, linkByContractProject } = props;
@@ -296,15 +309,13 @@ const ContractMatrixRow = observer(function ContractMatrixRow(props: {
 });
 
 /**
- * Format an allocation_ratio coming back from the backend.
- * - If it parses as a finite number, multiply by 100 and show as a
- *   percentage with one decimal place (e.g. 0.1 -> "10.0 %").
- * - If it does not parse (or is null) show an em-dash.
- *
- * The backend serializer stores allocation_ratio as a decimal string like
- * "0.1000"; multiplying by 100 turns it into a percent. If a future
- * backend change ever stores it as a pre-formatted percent string the
- * numeric parse will still work and the multiplier just becomes 1.0.
+ * Format an allocation_ratio coming back from the backend for display.
+ * - null / undefined / empty: em-dash
+ * - anything Number(raw) rejects (NaN, Infinity, non-numeric strings
+ *   like "1.0%"): em-dash (defense in depth; backend currently only
+ *   stores decimal strings like "0.1000", so this branch is theoretical)
+ * - a finite number: scaled to percent with one decimal, trimming the
+ *   trailing .0 (so 0.10 -> "10 %", 1.00 -> "100 %")
  */
 function formatRatio(raw: string | null | undefined): string {
   if (raw == null || raw === "") return "—";

@@ -11,6 +11,7 @@
 import { observer } from "mobx-react";
 // components
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import { NotAuthorizedView } from "@/components/auth-screens/not-authorized-view";
 import { PageHead } from "@/components/core/page-title";
 import { SettingsContentWrapper } from "@/components/settings/content-wrapper";
@@ -21,6 +22,8 @@ import { useUserPermissions } from "@/hooks/store/user";
 import { ContractsWorkspaceSettingsHeader } from "../header";
 
 function ContractMatrixPage() {
+  // i18n
+  const { t } = useTranslation();
   // store hooks
   const { workspaceUserInfo, allowPermissions } = useUserPermissions();
 
@@ -35,7 +38,7 @@ function ContractMatrixPage() {
 
   return (
     <SettingsContentWrapper header={<ContractsWorkspaceSettingsHeader />}>
-      <PageHead title="Contract matrix" />
+      <PageHead title={t("contract.matrix.title")} />
       <div className="size-full">
         <ContractMatrixRoot />
       </div>
