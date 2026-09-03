@@ -69,6 +69,23 @@
     "related_projects": {
       "heading": "关联项目",
       "empty": "该合同暂未关联项目。"
+    },
+    "matrix": {
+      "title": "合同 × 项目矩阵",
+      "description": "工作区级别合同与覆盖项目的对照视图。悬停单元格查看分配比例。",
+      "matrix_link": "矩阵视图",
+      "column": {
+        "contract": "合同"
+      },
+      "no_access": "您没有查看合同数据的权限。",
+      "no_contracts": "暂无合同。创建合同后开始矩阵。",
+      "no_projects": "工作区暂无项目。",
+      "filter": {
+        "customer": "客户",
+        "status": "状态",
+        "all": "全部"
+      },
+      "summary": "显示 {contracts} 个合同 × {projects} 个项目"
     }
   }
 }

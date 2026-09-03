@@ -69,6 +69,23 @@
     "related_projects": {
       "heading": "Related projects",
       "empty": "No projects are linked to this contract yet."
+    },
+    "matrix": {
+      "title": "Contract matrix",
+      "description": "Workspace-level view of every contract and the projects it covers. Hover a cell for the allocation ratio.",
+      "matrix_link": "Matrix view",
+      "column": {
+        "contract": "Contract"
+      },
+      "no_access": "You don't have permission to view contract data.",
+      "no_contracts": "No contracts yet. Create one to start the matrix.",
+      "no_projects": "No projects in this workspace yet.",
+      "filter": {
+        "customer": "Customer",
+        "status": "Status",
+        "all": "All"
+      },
+      "summary": "Showing {contracts} contracts × {projects} projects"
     }
   }
 }
