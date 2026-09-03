@@ -758,3 +758,129 @@ docker compose -f docker-compose-local.yml stop
 ---
 
 **本手册终**。跑通上面的步骤 ≈ 完整验证 Phase B 全部功能,跟 fork 内部 PR #13 / #15 / #17 / #18 / #20 实际合并行为一致。
+
+---
+
+## 19. Phase B.1 端到端验证报告(commit `4014a6069`)
+
+> **本段状态**: 2026-09-03 02:xx UTC 在本机 WSL 2 + Docker Desktop 完成,9 个 import test 失败已定位并修(commit `4014a6069`, PR #26)。本段为**已完成事件记录**,不替代 step 1-18 步骤;本地 Agent 跑完 step 1-18 后,对照本段做最终 verification。
+
+### 19.1 复现 9 个 import test 失败的根因
+
+Phase A 期间 import command `import_historical_project_data.py:259` 的 typo:
+
+```python
+seen_contracts_this_run = set()  # comment: "Contract.contract_no -> Contract"
+```
+
+**矛盾**: comment 说这是 dict 映射(contract_no → Contract),但初始化为 set。
+而下面 2 个使用点(line 474, 491)需要 dict 行为:
+
+- `seen_contracts_this_run[contract_no]` → set 报 `TypeError: 'set' object is not subscriptable`
+- `seen_contracts_this_run[contract_no] = contract` → 报 `'set' object does not support item assignment`
+
+**触发路径**: 任一 non-blank 行 + 有效 unique key 走到 `seen_contracts_this_run` 写入 (line 491),所以 13 个 import test 中**9 个 fail**,**4 个 pass**(parse_row、skip-blank 等不到 contract 阶段就 return)。
+
+### 19.2 fix(commit `4014a6069`)
+
+```diff
+-        seen_contracts_this_run = set()  # Contract.contract_no -> Contract
++        seen_contracts_this_run = {}  # Contract.contract_no -> Contract
+```
+
+1 字符改动,无其他修改。sibling `seen_keys_this_run = set()` (line 258) 是真 set(`add()` + `in` 调用,line 317/348/354),保持不动。
+
+### 19.3 验证结果
+
+**Backend pytest**:
+- 修复前: `4 passed, 9 failed` (test_import_historical_project_data.py)
+- 修复后: `42 passed, 0 failed, 66 warnings in 5.80s` (B.1 model + view + import 全部)
+
+**端到端 import 命令(真实数据)**:
+- xlsx 复制到容器: `/code/project_summary.xlsx`
+- 创建 test workspace: `test-workspace` + admin `tester@example.com`
+- **dry-run**: `Created 0, Skipped: 8 blank, 192 duplicate` (DB 已被前次测试 seeded,符合预期)
+- **真实导入**(去重 + 清 DB 后): `Created 52 project(s). Skipped: 8 blank, 0 missing unique key, 140 duplicate, 0 error. 18 field-level warnings`
+- DB 验证: `contracts=39, links=49` (52 个 unique key,Contract 层去重为 39 个 unique contract_no)
+
+**Frontend 代码结构**:
+- API URL 匹配(2 个端点): ✅ workspace 列表 + project 链接
+- RelatedContractsBlock 完整(三态 UI: loading / empty / populated)
+- ContractStore 完整(MobX + cache dedup)
+- 集成到 project-info 页 ✅
+
+### 19.4 已知数据质量观察(本次 scope 外,供后续参考)
+
+- **xlsx 中 52 个 unique key(项目序号)** → 39 个 unique contract_no → Contract 层去重。**这是 Phase A 模型设计意图**,不是 bug(同一 contract_no 多次出现代表同合同覆盖多项目,Contract 层去重,ContractProject 层不)。
+- **2 条脏数据 `'-'` 和 `'待签约'` 被写入了 DB**:
+  - 应被 import command 过滤(Phase A 方案里 `'暂无'/'待签约'` 标记为 placeholder)
+  - **本次 scope 外** — 修这个 bug 需要新 commit(类似 `4014a6069` 模式),新 PR
+  - 不影响 Phase B.1 端到端可用性,只影响数据质量
+
+### 19.5 已知数据 sample(供本地 Agent 参考)
+
+实际 xlsx `项目汇总表.xlsx` 数据 sample:
+- 52 个 unique 项目序号(unique key)
+- 39 个 unique 合同号(unique contract_no; 部分合同有 ~5-12 次重复出现)
+- 49 个 ContractProject link(同合同可能关联多项目)
+- 8 条 blank row(自动 skip)
+- 18 条 field-level warning(xlsx 单元格类型解析)
+- 2 条 `contract_no='-'` / `contract_no='待签约'` 脏数据(**已落 DB**,**不在 scope 内 fix**)
+
+### 19.6 给本地 Agent 的操作步骤
+
+```bash
+# 1. 拉最新 commit (含 fix)
+cd ~/projects/plane
+git fetch origin
+git checkout claude/repo-code-summary-22f444
+git pull --ff-only
+# 预期 HEAD = 4014a6069 (fix) → 55222b3b7 (merge of fix)
+
+# 2. 启动 docker stack (如果还没跑)
+./setup.sh  # 如果 .env 不存在
+docker compose -f docker-compose-local.yml up -d
+
+# 3. 跑 backend pytest (应该 42/42 pass)
+docker compose -f docker-compose-test.yml run --rm api-tests pytest \
+    plane/tests/unit/models/test_contract.py \
+    plane/tests/unit/utils/test_historical_project_import.py \
+    plane/tests/unit/management/test_import_historical_project_data.py -v
+
+# 4. 浏览器 smoke (step 12 of 步骤 1-18)
+#    - 登录 admin user (从 step 8 捕获的 4 个 env 值)
+#    - 访问 /<WS>/settings/contracts/ → 看到 "新建合同" + "Matrix view" 链接
+#    - 访问 /<WS>/settings/contracts/matrix/ → 矩阵加载
+#    - 项目详情页: 看到 "关联合同" 区块(有合同显示 "关联项目" 链接)
+
+# 5. 端到端 import 验证 (重新跑, 先清 DB)
+docker compose -f docker-compose-test.yml down -v
+docker compose -f docker-compose-local.yml up -d
+docker compose -f docker-compose-local.yml exec api python manage.py migrate
+docker compose -f docker-compose-local.yml exec api python manage.py shell -c "
+from plane.db.models import Workspace, WorkspaceMember, User
+from uuid import uuid4
+slug = f'test-{uuid4().hex[:8]}'
+ws = Workspace.objects.create(name='Test WS', slug=slug, id=uuid4(), owner_id='00000000-0000-0000-0000-000000000000')
+u = User.objects.create(email=f'admin-{uuid4().hex[:6]}@test.local', username=f'admin_{uuid4().hex[:6]}', is_active=True)
+u.set_password('testpassword123'); u.save()
+WorkspaceMember.objects.create(workspace=ws, member=u, role=20, is_active=True)
+print(f'WORKSPACE_SLUG={slug}\\nADMIN_EMAIL={u.email}\\nPROJECT_ID={ws.id}')
+"
+# 记下 3 个 env 值
+docker cp ~/projects/plane/项目汇总表.xlsx plane-api-1:/code/test-data.xlsx
+docker compose -f docker-compose-local.yml exec api \
+    python manage.py import_historical_project_data /code/test-data.xlsx \
+        --workspace <WS_SLUG> --created-by <ADMIN_EMAIL>
+# 预期: Created ~52 project(s) + warnings (无 TypeError,fix 有效)
+```
+
+### 19.7 关联引用
+
+- fix commit: `4014a6069 fix(import): seen_contracts_this_run should be a dict, not a set`
+- merge commit: `55222b3b7 Merge pull request #26`
+- PR: <https://github.com/AlexanderShang/plane/pull/26>
+- Phase A 方案: `docs/internal-contract-project-relationship.md`
+- 实施记录: `docs/internal-contract-project-relationship-implementation-2026-09.md`
+- 原始 guide: `docs/contract-project-wsl2-test-guide.md` (step 1-18,本段为附录)
+
