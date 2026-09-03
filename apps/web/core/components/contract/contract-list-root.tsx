@@ -60,12 +60,22 @@ export const ContractListRoot = observer(function ContractListRoot() {
             <h2 className="text-h3-medium text-primary">{t("contract.list.title")}</h2>
             <p className="text-body-xs-regular text-secondary">{t("contract.list.description")}</p>
           </div>
-          {canEdit && (
-            <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              {t("contract.list.new_button")}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <Link
+                href={`/${ws}/settings/contracts/matrix/`}
+                className="text-body-sm-medium text-secondary hover:underline"
+              >
+                {t("contract.list.matrix_link")}
+              </Link>
+            )}
+            {canEdit && (
+              <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {t("contract.list.new_button")}
+              </Button>
+            )}
+          </div>
         </div>
 
         {!loaded || !contracts ? (
