@@ -25,6 +25,16 @@ class ContractSerializer(BaseSerializer):
     # GET without forcing the frontend to fan out to a separate endpoint.
     project_links = serializers.SerializerMethodField()
 
+    # Override the ModelSerializer auto-generated ForeignKey field with an
+    # explicit UUIDField. The default read-only ForeignKey maps to a
+    # PrimaryKeyRelatedField whose to_representation returns the raw UUID
+    # object (NOT str()), which fails string-comparison assertions in the
+    # test suite and confuses the TypeScript frontend (string == string, not
+    # string == UUID object). UUIDField.to_representation calls str() and
+    # matches what the test (response.data['workspace_id'] == str(ws.id))
+    # and the frontend both expect. See PR #28.
+    workspace_id = serializers.UUIDField(source="workspace_id", read_only=True)
+
     class Meta:
         model = Contract
         fields = [
@@ -45,7 +55,10 @@ class ContractSerializer(BaseSerializer):
         # workspace is set by the view from the URL slug; contract_no is the
         # business identifier and uniqueness is enforced by a DB constraint
         # rather than a serializer-level check, so neither needs to be writable.
-        read_only_fields = ["workspace", "contract_no"]
+        # workspace is *not* listed here because the explicit UUIDField
+        # declaration above (which sources the FK's pk) replaces the
+        # ModelSerializer auto-generated PrimaryKeyRelatedField.
+        read_only_fields = ["contract_no"]
 
     def get_project_links(self, obj):
         # Annotate-free read path: the project-info page is read-mostly and the
