@@ -557,7 +557,7 @@ Critical test: 之前 PR #17 引入的 `[1], 20` typo 导致 New Contract 按钮
 ```bash
 # WSL 2 Ubuntu
 # 登录取得 session token (简化版; 实际 DRF token auth)
-TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/sign-in/ \
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/sign-in/ \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"<ADMIN_EMAIL>\",\"password\":\"testpassword123\"}" \
     | python3 -c "import json, sys; print(json.load(sys.stdin).get('token', ''))")
@@ -925,18 +925,34 @@ pnpm install --frozen-lockfile
 # 关键 — 这会建立 packages/* 之间 + apps/* -> packages/* 的 symlinks,
 # 是 Vite resolution 失败最常见的 root cause
 
-# 4. 强制 build 内部 workspace 包(防止 dev server 解析失败)
+# 4. 强制 build 所有 10 个 @plane/* 内部 workspace 包
+#    (apps/web/package.json 实际依赖 10 个,漏 build 的包会在
+#    dev server 启动时 'Cannot find module' — 早期用户报告
+#    `@plane/constants` 解析失败只是 10 个中的 1 个)
 pnpm --filter=@plane/types build
 pnpm --filter=@plane/constants build
+pnpm --filter=@plane/editor build
 pnpm --filter=@plane/i18n build
+pnpm --filter=@plane/propel build
+pnpm --filter=@plane/utils build
+pnpm --filter=@plane/hooks build
+pnpm --filter=@plane/services build
+pnpm --filter=@plane/shared-state build
 pnpm --filter=@plane/ui build
 
-# 5. 验证 build output 存在
-ls packages/constants/dist/index.js
-ls packages/i18n/dist/index.js
+# 5. 验证 10 个 build output 都存在
 ls packages/types/dist/index.d.ts
+ls packages/constants/dist/index.js
+ls packages/editor/dist/index.js
+ls packages/i18n/dist/index.js
+ls packages/propel/dist/index.js
+ls packages/utils/dist/index.js
+ls packages/hooks/dist/index.js
+ls packages/services/dist/index.js
+ls packages/shared-state/dist/index.js
 ls packages/ui/dist/index.js
-# 4 个文件都应存在
+# 10 个文件都应存在(具体文件名因 package.json 'exports' 字段而异,
+# 大多数是 dist/index.js 或 dist/index.d.ts)
 ```
 
 **如果 `pnpm install` 仍失败**: 检查 Node.js 版本(要求 >= 18,推荐 20.x)+ pnpm 版本(要求 8.x+):
@@ -1046,16 +1062,22 @@ Production build 把所有 workspace 依赖都 inline-bundle,绕开 Vite dev ser
 ### 20.6 给本地 Agent 的操作步骤
 
 ```bash
-# === 1. Vite preflight ===
+# === 1. Vite preflight (完整 list 见 20.2; 10 个 @plane/* 包) ===
 cd ~/projects/plane
 git fetch origin
-git pull --ff-only   # 预期 HEAD = cb7db6b12
+git pull --ff-only   # 预期 HEAD = 1e0bf7525
 pnpm install --frozen-lockfile
 pnpm --filter=@plane/types build && \
 pnpm --filter=@plane/constants build && \
+pnpm --filter=@plane/editor build && \
 pnpm --filter=@plane/i18n build && \
+pnpm --filter=@plane/propel build && \
+pnpm --filter=@plane/utils build && \
+pnpm --filter=@plane/hooks build && \
+pnpm --filter=@plane/services build && \
+pnpm --filter=@plane/shared-state build && \
 pnpm --filter=@plane/ui build
-ls packages/constants/dist/index.js   # 验证存在
+ls packages/constants/dist/index.js   # 验证存在 (其余 9 个同样方式验证)
 
 # === 2. 启动 dev server ===
 cd apps/web
